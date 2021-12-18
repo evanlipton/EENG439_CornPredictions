@@ -4,12 +4,12 @@ import time
 
 import torch
 import torch.nn as nn
-from models import LSTNet
+import LSTNet
 import numpy as np
 import importlib
 
-from utils import *
-import Optim
+import pickle
+import data_loader
 
 
 def train(model, device, train_loader, optimizer, criterion, epoch,
@@ -31,7 +31,8 @@ def train(model, device, train_loader, optimizer, criterion, epoch,
     train_loss = ((train_loss)/len(train_loader.dataset))
     train_losses.append(train_loss)
     # calculating the accuracy
-    accuracy = (100*correct) / len(train_loader.dataset)train_accuracies.append(accuracy)
+    accuracy = (100*correct) / len(train_loader.dataset)
+    train_accuracies.append(accuracy)
     # logging the result
     print("Train Epoch: %d Train Loss: %.4f Train Accuracy: %.2f" %
           (epoch, train_loss, accuracy))
@@ -44,21 +45,21 @@ def test(model, device, test_loader, criterion, epoch, test_losses, test_accurac
     test_loss = 0
     correct = 0
     with torch.no_grad():
-    for data, target in test_loader:
-        data, target = data.to(device), target.to(device)
-        output = model(data)
-        test_loss += criterion(output, target)
-        pred = output.argmax(dim=1, keepdim=True)
-        correct += pred.eq(target.view_as(pred)).sum().item()
-    # test loss calculation
-    test_loss = (test_loss/len(test_loader.dataset))
-    # calculating the accuracy in the validation step
-    accuracy = (100*correct)/len(test_loader.dataset)
-    test_accuracies.append(accuracy)
-    test_losses.append(test_loss)
-    # logging the results
-    print("Test Epoch: %d Test Loss: %.4f Test Accuracy: %.2f" %
-          (epoch, test_loss, accuracy))
+        for data, target in test_loader:
+            data, target = data.to(device), target.to(device)
+            output = model(data)
+            test_loss += criterion(output, target)
+            pred = output.argmax(dim=1, keepdim=True)
+            correct += pred.eq(target.view_as(pred)).sum().item()
+        # test loss calculation
+        test_loss = (test_loss/len(test_loader.dataset))
+        # calculating the accuracy in the validation step
+        accuracy = (100*correct)/len(test_loader.dataset)
+        test_accuracies.append(accuracy)
+        test_losses.append(test_loss)
+        # logging the results
+        print("Test Epoch: %d Test Loss: %.4f Test Accuracy: %.2f" %
+              (epoch, test_loss, accuracy))
 
 # model fitting in pytorch
 
@@ -76,6 +77,7 @@ def fit(model, device, train_loader, test_loader, optimizer, criterion, no_of_ep
         return train_losses, test_losses, train_accuracies, test_accuraciesrgparse.ArgumentParser(description='PyTorch Time series forecasting')
 
 
+parser = argparse.ArgumentParser(description='PyTorch Time Series Forecasting')
 parser.add_argument('--train', type=str, required=True,
                     help='location of the training data file')
 parser.add_argument('--test', type=str, required=True,
@@ -122,12 +124,16 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
-trainset =
+f = open("data.pkl")
+dataset = pickle.load(f)
+
+print(dataset[2014])
+
+trainset = None
 trainloader = torch.utils.data.DataLoader(
     trainset, batch_size=128, shuffle=True, num_workers=2)
 
-testset = torchvision.datasets.CIFAR10(
-    root='./data', train=False, download=True, transform=transforms.ToTensor())
+testset = None
 testloader = torch.utils.data.DataLoader(
     testset, batch_size=100, shuffle=False, num_workers=2)
 
@@ -137,13 +143,13 @@ net = LSTNet(args, num_parameters)
 net = net.to(device)
 if device == 'cuda':
     net = nn.DataParallel(net)
-        cudnn.benchmark = True
+    cudnn.benchmark = True
 
-        criterion = nn.CrossEntropyLoss()
-        optimizer = optim.SGD(net.parameters(), lr=0.001,
-                              momentum=0.9, weight_decay=5e-4)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=200)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(net.parameters(), lr=0.001,
+                          momentum=0.9, weight_decay=5e-4)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=200)
 
 args.cuda = args.gpu is not None
 if args.cuda:

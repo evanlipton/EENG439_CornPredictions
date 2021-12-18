@@ -26,7 +26,7 @@ class LSTNet(nn.Module):
             self.linear1 = nn.Linear(self.hidR, self.m)
         if (self.hw > 0):
             self.highway = nn.Linear(self.hw, 1)
-	self.linear2 = nn.Linear(self.m, num_output)
+        self.linear2 = nn.Linear(self.m, num_output)
 
     def forward(self, x):
         batch_size = x.size(0)
@@ -63,9 +63,9 @@ class LSTNet(nn.Module):
             z = self.highway(z)
             z = z.view(-1, self.m)
             res = res + z
-	res = F.relu(res)
+        res = F.relu(res)
 
-	res = self.linear2(res)
-	res = F.sigmoid(res)
-	
+        res = self.linear2(res)
+        res = F.sigmoid(res)
+
         return res

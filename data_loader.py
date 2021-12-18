@@ -1,11 +1,11 @@
 import torch
 
 class DataLoader(torch.utils.data.Dataset):
-    __init__(self, x):
+    def __init__(self, x):
         self.x = x
 
-    __getitem__(self, index):
+    def __getitem__(self, index):
         return x[index]
 
-    __getitem__(self):
+    def __getitem__(self):
         return len(x)
