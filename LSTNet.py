@@ -3,12 +3,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class Model(nn.Module):
-    def __init__(self, args, data):
+class LSTNet(nn.Module):
+    def __init__(self, args, num_input, num_output):
         super(Model, self).__init__()
         self.use_cuda = args.cuda
         self.P = args.window
-        self.m = data.m
+        self.m = num_input
         self.hidR = args.hidRNN
         self.hidC = args.hidCNN
         self.hidS = args.hidSkip
@@ -26,11 +26,7 @@ class Model(nn.Module):
             self.linear1 = nn.Linear(self.hidR, self.m)
         if (self.hw > 0):
             self.highway = nn.Linear(self.hw, 1)
-        self.output = None
-        if (args.output_fun == 'sigmoid'):
-            self.output = F.sigmoid
-        if (args.output_fun == 'tanh'):
-            self.output = F.tanh
+	self.linear2 = nn.Linear(self.m, num_output)
 
     def forward(self, x):
         batch_size = x.size(0)
@@ -67,7 +63,9 @@ class Model(nn.Module):
             z = self.highway(z)
             z = z.view(-1, self.m)
             res = res + z
+	res = F.relu(res)
 
-        if (self.output):
-            res = self.output(res)
+	res = self.linear2(res)
+	res = F.sigmoid(res)
+	
         return res
