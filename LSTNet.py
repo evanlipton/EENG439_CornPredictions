@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 class LSTNet(nn.Module):
     def __init__(self, args, num_input, num_output):
-        super(Model, self).__init__()
+        super(LSTNet, self).__init__()
         self.use_cuda = args.cuda
         self.P = args.window
         self.m = num_input

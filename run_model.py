@@ -37,7 +37,7 @@ def train(model, device, train_loader, optimizer, criterion, epoch,
     train_accuracies.append(accuracy)
     # logging the result
     log_file.write("Train Epoch: %d Train Loss: %.4f Train Accuracy: %.2f" %
-          (epoch, train_loss, accuracy))
+                   (epoch, train_loss, accuracy))
 
 # testing model in pytorch
 
@@ -61,7 +61,7 @@ def test(model, device, test_loader, criterion, epoch, test_losses, test_accurac
         test_losses.append(test_loss)
         # logging the results
         log_file.write("Test Epoch: %d Test Loss: %.4f Test Accuracy: %.2f" %
-              (epoch, test_loss, accuracy))
+                       (epoch, test_loss, accuracy))
 
 # model fitting in pytorch
 
@@ -79,7 +79,7 @@ def fit(model, device, train_loader, test_loader, optimizer, criterion, no_of_ep
              epoch, test_losses, test_accuracies, log_file)
 
     with open(model_filename, "wb") as f:
-	torch.save(model, f)
+        torch.save(model, f)
 
     return train_losses, test_losses, train_accuracies, test_accuracies
 
@@ -96,20 +96,22 @@ def train_and_test(net, pkl, model_name, seed=0xE5A0):
 
     for test_year in dataset.keys():
         trainset = [d for y, d in dataset.items() if y != test_year]
-	trainset = reduce(lambda x, y: x.merge(y), trainset)
-	trainset = DataLoaderHelper(trainset.drop('Label').to_numpy(), trainset['Label'].to_numpy(), transforms.ToTensor())
+        trainset = reduce(lambda x, y: x.merge(y), trainset)
+        trainset = DataLoaderHelper(trainset.drop('Labels').to_numpy(
+        ), trainset['Labels'].to_numpy(), transforms.ToTensor())
         trainloader = torch.utils.data.DataLoader(
             trainset, batch_size=128, shuffle=True, num_workers=2)
 
         testset = dataset[test_year]
-	testset = DataLoaderHelper(testset.drop('Label').to_numpy(), testset['Label'].to_numpy(), transforms.ToTensor())
+        testset = DataLoaderHelper(testset.drop('Labels').to_numpy(
+        ), testset['Labels'].to_numpy(), transforms.ToTensor())
         testloader = torch.utils.data.DataLoader(
             testset, batch_size=100, shuffle=False, num_workers=2)
 
         classes = ('Buy', 'Hold', 'Sell')
 
-	log_filename = model_name + "-" + str(test_year) + ".log"
-	mode_filename = model_name + ".pt"
+        log_filename = model_name + "-" + str(test_year) + ".log"
+        mode_filename = model_name + ".pt"
 
         net = net.to(device)
         if device == 'cuda':
@@ -123,5 +125,5 @@ def train_and_test(net, pkl, model_name, seed=0xE5A0):
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                 optimizer, T_max=200)
 
-	train_losses, test_losses, train_accuracies, test_accuracies = fit(net, device, trainloader, testloader, optimizer,
-		criterion, NUM_EPOCHS, log_filename, model_filename)
+        train_losses, test_losses, train_accuracies, test_accuracies = fit(net, device, trainloader, testloader, optimizer,
+                                                                           criterion, NUM_EPOCHS, log_filename, model_filename)
