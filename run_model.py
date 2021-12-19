@@ -46,15 +46,16 @@ def test(model, device, test_loader, criterion, epoch, test_losses, test_accurac
     model.eval()
     test_loss = 0
     correct = 0
-    sells = 0
+    sells = []
     with torch.no_grad():
-        for data, target in test_loader:
+        # Change to data, target if no extra data is passed to TestLoaderHelper
+        for data, target, date in test_loader:
             data, target = data.to(device), target.to(device)
             output = model(data)
             test_loss += criterion(output, target)
             pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
-            sells += pred.eq(2).sum().item()
+            sells += [date[i].item() for i in range(len(pred)) if pred[i] == 2]
         # test loss calculation
         test_loss = (test_loss/len(test_loader.dataset))
         # calculating the accuracy in the validation step
@@ -78,13 +79,14 @@ def fit(model, device, train_loader, test_loader, optimizer, criterion, no_of_ep
     for epoch in range(0, no_of_epochs):
         train(model, device, train_loader, optimizer,
               criterion, epoch, train_losses, train_accuracies, log_file)
-        sells =  test(model, device, test_loader, criterion,
+        sells = test(model, device, test_loader, criterion,
              epoch, test_losses, test_accuracies, log_file)
 
     with open(model_filename, "wb") as f:
         torch.save(model, f)
 
-    print("Number of sells:", sells)
+    with open(csv_filename, "w") as f:
+        f.write(",".join(list(map(str, sells))))
 
     return train_losses, test_losses, train_accuracies, test_accuracies
 
@@ -107,7 +109,7 @@ def train_and_test(model, model_name, data_pkl="data_lagged.pkl", label_pkl="lab
         trainlabels = [labels[y] for y, d in dataset.items() if y != test_year]
         trainlabels = reduce(lambda x, y: x + y, trainlabels)
 
-        trainset = dlh.DataLoaderHelper(np.nan_to_num(trainset.drop(['Date'], axis=1).to_numpy(
+        trainset = dlh.TrainLoaderHelper(np.nan_to_num(trainset.drop(['Date'], axis=1).to_numpy(
         )), np.array(trainlabels), torch.Tensor)
         trainloader = torch.utils.data.DataLoader(
             trainset, batch_size=128, shuffle=True, num_workers=2)
@@ -116,8 +118,8 @@ def train_and_test(model, model_name, data_pkl="data_lagged.pkl", label_pkl="lab
 
         testlabels = labels[test_year]
 
-        testset = dlh.DataLoaderHelper(np.nan_to_num(testset.drop(['Date'], axis=1).to_numpy(
-        )), np.array(testlabels), torch.Tensor)
+        testset = dlh.TestLoaderHelper(np.nan_to_num(testset.drop(['Date'], axis=1).to_numpy(
+        )), np.array(testlabels), torch.Tensor, testset['Days Since Harvest'].to_numpy())
         testloader = torch.utils.data.DataLoader(
             testset, batch_size=100, shuffle=False, num_workers=2)
 
