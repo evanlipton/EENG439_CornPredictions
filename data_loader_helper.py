@@ -10,7 +10,7 @@ class DataLoaderHelper(torch.utils.data.Dataset):
         self.transform = transform
 
     def __getitem__(self, index):
-        return self.transform(self.data[index]), labels[index]
+        return self.transform(self.data[index]), self.labels[index]
 
     def __len__(self):
-        return len(x)
+        return self.data.shape[0]

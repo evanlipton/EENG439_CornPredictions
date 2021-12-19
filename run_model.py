@@ -1,15 +1,15 @@
-import argparse
 import math
-import time
+import copy
 
 import torch
 import torch.nn as nn
-import LSTNet
+import torch.optim as optim
+import torch.backends.cudnn as cudnn
 import numpy as np
 import importlib
 
 import pickle
-import data_loader
+import data_loader_helper as dlh
 
 from functools import reduce
 
@@ -36,7 +36,7 @@ def train(model, device, train_loader, optimizer, criterion, epoch,
     accuracy = (100*correct) / len(train_loader.dataset)
     train_accuracies.append(accuracy)
     # logging the result
-    log_file.write("Train Epoch: %d Train Loss: %.4f Train Accuracy: %.2f" %
+    log_file.write("Train Epoch: %d Train Loss: %.4f Train Accuracy: %.2f\n" %
                    (epoch, train_loss, accuracy))
 
 # testing model in pytorch
@@ -60,14 +60,14 @@ def test(model, device, test_loader, criterion, epoch, test_losses, test_accurac
         test_accuracies.append(accuracy)
         test_losses.append(test_loss)
         # logging the results
-        log_file.write("Test Epoch: %d Test Loss: %.4f Test Accuracy: %.2f" %
+        log_file.write("Test Epoch: %d Test Loss: %.4f Test Accuracy: %.2f\n" %
                        (epoch, test_loss, accuracy))
 
 # model fitting in pytorch
 
 
-def fit(model, device, train_loader, test_loader, optimizer, criterion, no_of_epochs, log_filename, model_filename):
-    log_file = open(log_filename, "wb")
+def fit(model, device, train_loader, test_loader, optimizer, criterion, no_of_epochs, log_filename, model_filename, csv_filename):
+    log_file = open(log_filename, "w")
     train_losses = []
     test_losses = []
     train_accuracies = []
@@ -84,46 +84,46 @@ def fit(model, device, train_loader, test_loader, optimizer, criterion, no_of_ep
     return train_losses, test_losses, train_accuracies, test_accuracies
 
 
-def train_and_test(net, pkl, model_name, seed=0xE5A0):
+def train_and_test(model, model_name, pkl="data.pkl", seed=0xE5A0):
     NUM_EPOCHS = 150
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    best_acc = 0  # best test accuracy
-    start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
-    with open("data.pkl", "rb") as f:
+    with open(pkl, "rb") as f:
         dataset = pickle.load(f)
 
     for test_year in dataset.keys():
         trainset = [d for y, d in dataset.items() if y != test_year]
-        trainset = reduce(lambda x, y: x.merge(y), trainset)
-        trainset = DataLoaderHelper(trainset.drop('Labels').to_numpy(
-        ), trainset['Labels'].to_numpy(), transforms.ToTensor())
+        trainset = reduce(lambda x, y: x.append(y), trainset)
+        trainset = dlh.DataLoaderHelper(np.nan_to_num(trainset.drop(['Labels', 'Date'], axis=1).to_numpy(
+        )), trainset['Labels'].to_numpy() + 1, torch.Tensor)
         trainloader = torch.utils.data.DataLoader(
             trainset, batch_size=128, shuffle=True, num_workers=2)
 
         testset = dataset[test_year]
-        testset = DataLoaderHelper(testset.drop('Labels').to_numpy(
-        ), testset['Labels'].to_numpy(), transforms.ToTensor())
+        testset = dlh.DataLoaderHelper(np.nan_to_num(testset.drop(['Labels', 'Date'], axis=1).to_numpy(
+        )), testset['Labels'].to_numpy() + 1, torch.Tensor)
         testloader = torch.utils.data.DataLoader(
             testset, batch_size=100, shuffle=False, num_workers=2)
 
         classes = ('Buy', 'Hold', 'Sell')
 
         log_filename = model_name + "-" + str(test_year) + ".log"
-        mode_filename = model_name + ".pt"
+        model_filename = model_name + "-" + str(test_year) + ".pt"
+        csv_filename = model_name + "-" + str(test_year) + ".csv"
 
+        net = copy.deepcopy(model)
         net = net.to(device)
         if device == 'cuda':
             net = nn.DataParallel(net)
             cudnn.benchmark = True
 
-            criterion = nn.CrossEntropyLoss()
-            # @FIX CHANGE TO ADAM
-            optimizer = optim.SGD(net.parameters(), lr=0.001,
-                                  momentum=0.9, weight_decay=5e-4)
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                optimizer, T_max=200)
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(net.parameters())
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=200)
 
         train_losses, test_losses, train_accuracies, test_accuracies = fit(net, device, trainloader, testloader, optimizer,
-                                                                           criterion, NUM_EPOCHS, log_filename, model_filename)
+                                                                           criterion, NUM_EPOCHS, log_filename, 
+                                                                           model_filename, csv_filename)
+        print("Final train accuracy: %lf, Final test accuracy: %lf" % (train_accuracies[-1], test_accuracies[-1]))
