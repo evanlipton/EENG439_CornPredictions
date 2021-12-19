@@ -46,6 +46,7 @@ def test(model, device, test_loader, criterion, epoch, test_losses, test_accurac
     model.eval()
     test_loss = 0
     correct = 0
+    sells = 0
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
@@ -53,6 +54,7 @@ def test(model, device, test_loader, criterion, epoch, test_losses, test_accurac
             test_loss += criterion(output, target)
             pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
+            sells += pred.eq(2).sum().item()
         # test loss calculation
         test_loss = (test_loss/len(test_loader.dataset))
         # calculating the accuracy in the validation step
@@ -62,6 +64,7 @@ def test(model, device, test_loader, criterion, epoch, test_losses, test_accurac
         # logging the results
         log_file.write("Test Epoch: %d Test Loss: %.4f Test Accuracy: %.2f\n" %
                        (epoch, test_loss, accuracy))
+        return sells
 
 # model fitting in pytorch
 
@@ -75,34 +78,46 @@ def fit(model, device, train_loader, test_loader, optimizer, criterion, no_of_ep
     for epoch in range(0, no_of_epochs):
         train(model, device, train_loader, optimizer,
               criterion, epoch, train_losses, train_accuracies, log_file)
-        test(model, device, test_loader, criterion,
+        sells =  test(model, device, test_loader, criterion,
              epoch, test_losses, test_accuracies, log_file)
 
     with open(model_filename, "wb") as f:
         torch.save(model, f)
 
+    print("Number of sells:", sells)
+
     return train_losses, test_losses, train_accuracies, test_accuracies
 
 
-def train_and_test(model, model_name, pkl="data.pkl", seed=0xE5A0):
+def train_and_test(model, model_name, data_pkl="data_lagged.pkl", label_pkl="label_for_matrix.pkl", seed=0xE5A0):
     NUM_EPOCHS = 150
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    with open(pkl, "rb") as f:
+    with open(data_pkl, "rb") as f:
         dataset = pickle.load(f)
+
+    with open(label_pkl, "rb") as f:
+        labels = pickle.load(f)
 
     for test_year in dataset.keys():
         trainset = [d for y, d in dataset.items() if y != test_year]
         trainset = reduce(lambda x, y: x.append(y), trainset)
-        trainset = dlh.DataLoaderHelper(np.nan_to_num(trainset.drop(['Labels', 'Date'], axis=1).to_numpy(
-        )), trainset['Labels'].to_numpy() + 1, torch.Tensor)
+
+        trainlabels = [labels[y] for y, d in dataset.items() if y != test_year]
+        trainlabels = reduce(lambda x, y: x + y, trainlabels)
+
+        trainset = dlh.DataLoaderHelper(np.nan_to_num(trainset.drop(['Date'], axis=1).to_numpy(
+        )), np.array(trainlabels), torch.Tensor)
         trainloader = torch.utils.data.DataLoader(
             trainset, batch_size=128, shuffle=True, num_workers=2)
 
         testset = dataset[test_year]
-        testset = dlh.DataLoaderHelper(np.nan_to_num(testset.drop(['Labels', 'Date'], axis=1).to_numpy(
-        )), testset['Labels'].to_numpy() + 1, torch.Tensor)
+
+        testlabels = labels[test_year]
+
+        testset = dlh.DataLoaderHelper(np.nan_to_num(testset.drop(['Date'], axis=1).to_numpy(
+        )), np.array(testlabels), torch.Tensor)
         testloader = torch.utils.data.DataLoader(
             testset, batch_size=100, shuffle=False, num_workers=2)
 
