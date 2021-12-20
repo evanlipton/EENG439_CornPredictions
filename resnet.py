@@ -70,7 +70,7 @@ class ResNet(nn.Module):
         super(ResNet, self).__init__()
         self.in_planes = 64
 
-        layers = []
+        layers = [nn.Dropout(p=0.2)]
         layers += [nn.Conv2d(1, 64, kernel_size=3, stride=1,
                              padding=1, bias=False)]
         layers += [nn.BatchNorm2d(64)]
