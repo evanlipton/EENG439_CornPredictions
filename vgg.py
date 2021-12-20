@@ -34,7 +34,7 @@ class VGG(nn.Module):
 
     def _make_conv_layers(self, cfg):
         layers = [nn.Dropout(p=0.2)]
-        in_channels = 3
+        in_channels = 1
         for x in cfg:
             if x == 'M':
                 layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
