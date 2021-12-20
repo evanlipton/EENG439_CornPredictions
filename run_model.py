@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
+import pandas as pd
 import numpy as np
 import importlib
 
@@ -104,22 +105,37 @@ def train_and_test(model, model_name, data_pkl="data_lagged.pkl", label_pkl="lab
 
     for test_year in dataset.keys():
         trainset = [d for y, d in dataset.items() if y != test_year]
-        trainset = reduce(lambda x, y: x.append(y), trainset)
-
+        if isinstance(trainset[0][0], pd.DataFrame):
+            trainset = reduce(lambda x, y: x + y, trainset)
+            trainset = list(map(lambda x: np.pad(x.drop(['Date'], axis=1).to_numpy(), 5), trainset))
+            trainset = list(map(lambda x: np.array([x]), trainset))
+            trainset = np.nan_to_num(np.array(trainset))
+        else:
+            trainset = reduce(lambda x, y: x.append(y), trainset)
+            trainset = np.nan_to_num(trainset.drop(['Date'], axis=1).to_numpy())
+        
         trainlabels = [labels[y] for y, d in dataset.items() if y != test_year]
         trainlabels = reduce(lambda x, y: x + y, trainlabels)
 
-        trainset = dlh.TrainLoaderHelper(np.nan_to_num(trainset.drop(['Date'], axis=1).to_numpy(
-        )), np.array(trainlabels), torch.Tensor)
+        trainset = dlh.TrainLoaderHelper(trainset, np.array(trainlabels), torch.Tensor)
         trainloader = torch.utils.data.DataLoader(
             trainset, batch_size=128, shuffle=True, num_workers=2)
 
         testset = dataset[test_year]
 
+        if isinstance(testset, pd.DataFrame):
+            timedata = testset['Days Since Harvest'].to_numpy()
+            testset = np.nan_to_num(testset.drop(['Date'], axis=1).to_numpy())
+        else:
+            timedata = list(map(lambda x: list(x['Days Since Harvest']), testset))
+            timedata = list(map(lambda x: x[-1], timedata))
+            testset = list(map(lambda x: np.pad(np.nan_to_num(x.drop(['Date'], axis=1).to_numpy()), 5), testset))
+            testset = list(map(lambda x: np.array([x]), list(np.array(testset))))
+            testset = np.array(testset)
+
         testlabels = labels[test_year]
 
-        testset = dlh.TestLoaderHelper(np.nan_to_num(testset.drop(['Date'], axis=1).to_numpy(
-        )), np.array(testlabels), torch.Tensor, testset['Days Since Harvest'].to_numpy())
+        testset = dlh.TestLoaderHelper(testset, np.array(testlabels), torch.Tensor, timedata)
         testloader = torch.utils.data.DataLoader(
             testset, batch_size=100, shuffle=False, num_workers=2)
 
