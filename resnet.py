@@ -82,7 +82,7 @@ class ResNet(nn.Module):
 
         self.features = nn.Sequential(*layers)
 
-        self.classifier = nn.Linear(512*block.expansion, num_classes)
+        self.classifier = nn.Sequential([nn.Linear(512*block.expansion, num_classes), nn.Sigmoid()])
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)

@@ -23,6 +23,7 @@ class VGG(nn.Module):
         linear_layers = self._make_fc_layers(fc_cfg)
 
         linear_layers += [nn.Linear(out_channels, num_classes)]
+        linear_layers += [nn.Sigmoid()]
         self.classifier = nn.Sequential(*linear_layers)
 
     def forward(self, x):
