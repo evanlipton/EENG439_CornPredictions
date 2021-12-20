@@ -98,6 +98,7 @@ def train_and_test(model, model_name, data_pkl="data_lagged.pkl", label_pkl="lab
     NUM_EPOCHS = 150
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(device)
 
     with open(data_pkl, "rb") as f:
         dataset = pickle.load(f)
