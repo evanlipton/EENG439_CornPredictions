@@ -48,6 +48,7 @@ def test(model, device, test_loader, criterion, epoch, test_losses, test_accurac
     test_loss = 0
     correct = 0
     sells = []
+    confidence = []
     with torch.no_grad():
         # Change to data, target if no extra data is passed to TestLoaderHelper
         for data, target, date in test_loader:
@@ -56,7 +57,7 @@ def test(model, device, test_loader, criterion, epoch, test_losses, test_accurac
             test_loss += criterion(output, target)
             pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
-            sells += [date[i].item() for i in range(len(pred)) if pred[i] == 2]
+            sells += [(date[i].item(), output[i]) for i in range(len(pred)) if pred[i] == 2]
         # test loss calculation
         test_loss = (test_loss/len(test_loader.dataset))
         # calculating the accuracy in the validation step
@@ -87,7 +88,8 @@ def fit(model, device, train_loader, test_loader, optimizer, criterion, no_of_ep
         torch.save(model, f)
 
     with open(csv_filename, "w") as f:
-        f.write(",".join(list(map(str, sells))))
+        f.write("Date,Confidence\n")
+        map(lambda x: f.write(str(x[0]) + "," + str(x[1]) + "\n"), sells)
 
     return train_losses, test_losses, train_accuracies, test_accuracies
 
